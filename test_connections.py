@@ -26,7 +26,7 @@ def main() -> None:
         )
         required = [
             ("RapidAPI", settings.rapidapi_key),
-            ("CJdropshipping", settings.cj_api_key and settings.cj_api_secret),
+            ("CJdropshipping", settings.cj_api_key),
             ("Anthropic/Claude", settings.anthropic_api_key),
         ]
         for name, key in required:

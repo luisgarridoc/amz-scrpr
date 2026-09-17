@@ -69,11 +69,17 @@ Anthropic/Claude. Keepa es opcional (ver nota abajo).
    mismo), ajusta esa parte del cliente a su contrato real.
 
 ### 3. CJdropshipping (https://cjdropshipping.com)
-1. Crea una cuenta normal en cjdropshipping.com.
-2. Solicita acceso de API en https://developers.cjdropshipping.com/.
-3. CJ autentica con email + password/API-key contra un endpoint que
-   devuelve un `accessToken` (válido ~unos días, hay que renovarlo).
-4. Pon esas credenciales en `CJ_API_KEY` / `CJ_API_SECRET` en `.env`.
+1. Crea una cuenta normal en cjdropshipping.com (regístrate como si fueras a
+   comprar/hacer dropshipping normal).
+2. Inicia sesión y busca la sección **"API"** en tu dashboard (a veces bajo
+   "My CJ" / Settings) — ahí generas tu API Key con el botón "Add API"/"Get API Key".
+3. Te da una única cadena con formato `CJUserNum@api@xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+   (no hay key + secret por separado, a diferencia de lo que asumí al principio).
+4. Copia esa cadena completa a `CJ_API_KEY` en `.env`.
+5. Nuestro cliente hace `POST /authentication/getAccessToken` con
+   `{"apiKey": "..."}` y obtiene un `accessToken` válido ~15 días (se cachea
+   en memoria durante la ejecución; renovarlo en corridas futuras no requiere
+   cambios de tu parte, se pide automáticamente).
 
 ### 4. Anthropic / Claude (https://console.anthropic.com)
 1. Crea una cuenta en console.anthropic.com y añade método de pago (la API

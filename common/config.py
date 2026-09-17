@@ -40,7 +40,6 @@ class Settings:
     scouting_category: str = os.getenv("SCOUTING_CATEGORY", "electronics")
 
     cj_api_key: str = os.getenv("CJ_API_KEY", "")
-    cj_api_secret: str = os.getenv("CJ_API_SECRET", "")
 
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")

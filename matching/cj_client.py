@@ -1,13 +1,14 @@
 """Cliente básico para la API oficial de CJdropshipping.
 
-Registro: crea cuenta en https://cjdropshipping.com/, luego solicita acceso
-de API en https://developers.cjdropshipping.com/ (te dan un "API Key" /
-"Access Token" ligado a tu email). CJ usa un flujo de autenticación por
-token: se hace login contra /authentication/getAccessToken con email +
-password/API key, y el accessToken devuelto se manda en el header
-"CJ-Access-Token" en las siguientes llamadas. Aquí lo modelamos con
-CJ_API_KEY (email o api key) y CJ_API_SECRET (password o secret), según
-el modo de auth que tengas habilitado en tu cuenta.
+Registro: crea una cuenta normal en https://cjdropshipping.com/, luego en
+tu dashboard busca la sección "API" (a veces bajo Settings / "My CJ") y
+genera tu API Key ahí -- es una única cadena con formato
+"CJUserNum@api@xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" (no hay key+secret por
+separado). Copia esa cadena completa a CJ_API_KEY en .env.
+
+Auth: POST /authentication/getAccessToken con body {"apiKey": "..."} (ver
+https://developers.cjdropshipping.com/), devuelve un accessToken válido
+~15 días que se manda como header "CJ-Access-Token" en las demás llamadas.
 """
 from __future__ import annotations
 
@@ -25,20 +26,18 @@ BASE_URL = "https://developers.cjdropshipping.com/api2.0/v1"
 
 
 class CJClient:
-    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or settings.cj_api_key
-        self.api_secret = api_secret or settings.cj_api_secret
         self._access_token: Optional[str] = None
-        if not self.api_key or not self.api_secret:
-            logger.warning("CJ_API_KEY / CJ_API_SECRET no configurados: las llamadas fallarán.")
+        if not self.api_key:
+            logger.warning("CJ_API_KEY no configurada: las llamadas fallarán.")
 
     @with_backoff()
     def get_access_token(self) -> str:
         if self._access_token:
             return self._access_token
         url = f"{BASE_URL}/authentication/getAccessToken"
-        payload = {"email": self.api_key, "password": self.api_secret}
-        resp = requests.post(url, json=payload, timeout=15)
+        resp = requests.post(url, json={"apiKey": self.api_key}, timeout=15)
         raise_for_rate_limit(resp)
         data = resp.json()
         token = data.get("data", {}).get("accessToken")
