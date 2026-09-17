@@ -1,9 +1,14 @@
-"""Cliente básico para un endpoint de RapidAPI de datos de Amazon.
+"""Cliente para la API "Real-Time Amazon Data" de RapidAPI
+(https://rapidapi.com/letscrape-6bRBa3QguO5/api/real-time-amazon-data).
 
-Free tier: crea cuenta en rapidapi.com, suscríbete (plan Basic/free) a un API
-de "Amazon Data" (ej. "Real-Time Amazon Data"), y copia la "X-RapidAPI-Key"
-desde la pestaña "Endpoints" del API elegido. El host (X-RapidAPI-Host)
-depende del API concreto que elijas — configúralo en RAPIDAPI_AMAZON_HOST.
+Free tier: plan Basic ($0/mes, 100 requests/mes). La key (X-RapidAPI-Key) y
+el host (X-RapidAPI-Host) se sacan del panel "Header Parameters" o del
+"Code Snippets" en el Playground del API, una vez suscrito.
+
+Endpoint usado para SCOUTING de "productos en tendencia": /best-sellers,
+que devuelve el ranking de más vendidos por categoría de Amazon (parámetros
+confirmados desde el Playground: language, country, type, page, fields,
+category).
 """
 from __future__ import annotations
 
@@ -16,6 +21,15 @@ from common.logging_conf import get_logger
 from common.retry import raise_for_rate_limit, with_backoff
 
 logger = get_logger(__name__)
+
+# Tipos de listado soportados por /best-sellers.
+BEST_SELLERS_TYPES = (
+    "BEST_SELLERS",
+    "GIFT_IDEAS",
+    "MOST_WISHED_FOR",
+    "MOVERS_AND_SHAKERS",
+    "NEW_RELEASES",
+)
 
 
 class RapidAPIAmazonClient:
@@ -32,22 +46,52 @@ class RapidAPIAmazonClient:
         }
 
     @with_backoff()
-    def search_products(self, keyword: str, country: str = "US") -> dict[str, Any]:
-        """Busca productos por keyword (endpoint de ejemplo: /search).
-
-        NOTA: el path y los parámetros exactos dependen del API de RapidAPI
-        que elijas — ajusta esta función al contrato real una vez suscrito.
+    def get_best_sellers(
+        self,
+        category: str,
+        list_type: str = "BEST_SELLERS",
+        page: str = "1",
+        country: str = "US",
+        language: Optional[str] = None,
+        fields: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Trae el ranking de más vendidos de una categoría (ej. "electronics",
+        o subcategoría "software/229535" tal como aparece en la URL de
+        Amazon Best Sellers).
         """
-        url = f"https://{self.host}/search"
-        params = {"query": keyword, "country": country}
+        url = f"https://{self.host}/best-sellers"
+        params: dict[str, Any] = {
+            "category": category,
+            "type": list_type,
+            "page": page,
+            "country": country,
+        }
+        if language:
+            params["language"] = language
+        if fields:
+            params["fields"] = fields
         resp = requests.get(url, headers=self._headers(), params=params, timeout=15)
         raise_for_rate_limit(resp)
         return resp.json()
 
-    def test_connection(self, sample_keyword: str = "wireless earbuds") -> bool:
-        """Prueba mínima: 1 búsqueda de ejemplo para verificar credenciales."""
+    @with_backoff()
+    def search_products(self, keyword: str, country: str = "US", page: str = "1") -> dict[str, Any]:
+        """Busca productos por keyword libre (endpoint /search).
+
+        NOTA: a diferencia de /best-sellers (contrato ya confirmado desde el
+        Playground), este método usa parámetros de ejemplo -- confírmalos
+        contra la pestaña "Search" del Playground antes de depender de él.
+        """
+        url = f"https://{self.host}/search"
+        params = {"query": keyword, "country": country, "page": page}
+        resp = requests.get(url, headers=self._headers(), params=params, timeout=15)
+        raise_for_rate_limit(resp)
+        return resp.json()
+
+    def test_connection(self, sample_category: str = "electronics") -> bool:
+        """Prueba mínima: 1 llamada a /best-sellers para verificar credenciales."""
         try:
-            data = self.search_products(sample_keyword)
+            data = self.get_best_sellers(sample_category)
             ok = bool(data)
             logger.info("RapidAPI test_connection: %s", "OK" if ok else "respuesta vacía")
             return ok
