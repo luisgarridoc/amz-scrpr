@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.cache/
+cache.sqlite3
+output/*.csv
+!output/.gitkeep
+.DS_Store
