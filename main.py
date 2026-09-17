@@ -22,10 +22,24 @@ def run_scouting() -> list[dict]:
     if settings.test_mode:
         logger.info("Usando SAMPLE_AMAZON_PRODUCTS (%d productos) en TEST_MODE", len(SAMPLE_AMAZON_PRODUCTS))
         return SAMPLE_AMAZON_PRODUCTS
-    raise NotImplementedError(
-        "Scouting real vía Keepa/RapidAPI aún no conectado al orquestador: "
-        "valida primero las credenciales con test_connections.py."
+
+    if settings.scouting_source != "rapidapi":
+        raise NotImplementedError(
+            f"SCOUTING_SOURCE={settings.scouting_source!r} aún no conectado al orquestador "
+            "(solo 'rapidapi' está implementado)."
+        )
+
+    from scouting.rapidapi_client import RapidAPIAmazonClient, map_best_sellers_to_products
+
+    client = RapidAPIAmazonClient()
+    raw = client.get_best_sellers(settings.scouting_category)
+    products = map_best_sellers_to_products(raw)
+    logger.info(
+        "Scouting real: %d productos con precio válido en categoría=%s",
+        len(products),
+        settings.scouting_category,
     )
+    return products
 
 
 def run_matching(amazon_product: dict, cache: MatchingCache) -> dict | None:

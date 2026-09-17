@@ -100,5 +100,39 @@ class RapidAPIAmazonClient:
             return False
 
 
+def _parse_price(raw: Optional[str]) -> Optional[float]:
+    """Convierte "$1,249.00" -> 1249.0. Devuelve None si no es parseable (o es null)."""
+    if not raw:
+        return None
+    cleaned = raw.replace("$", "").replace(",", "").strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def map_best_sellers_to_products(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Convierte la respuesta de /best-sellers al esquema interno del pipeline:
+    {title, asin, price, reviews, bsr}. Descarta items sin precio (product_price
+    null) ya que calc.gap_calculator los necesita.
+    """
+    items = response.get("data", {}).get("best_sellers", [])
+    products = []
+    for item in items:
+        price = _parse_price(item.get("product_price"))
+        if price is None:
+            continue
+        products.append(
+            {
+                "asin": item["asin"],
+                "title": item["product_title"],
+                "price": price,
+                "reviews": item.get("product_num_ratings") or 0,
+                "bsr": item.get("rank"),
+            }
+        )
+    return products
+
+
 if __name__ == "__main__":
     RapidAPIAmazonClient().test_connection()

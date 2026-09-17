@@ -59,9 +59,14 @@ Anthropic/Claude. Keepa es opcional (ver nota abajo).
 3. En la pestaña **Endpoints** del API elegido, copia:
    - `X-RapidAPI-Key` -> `RAPIDAPI_KEY` en `.env`
    - `X-RapidAPI-Host` -> `RAPIDAPI_AMAZON_HOST` en `.env`
-4. Ojo: cada API de RapidAPI tiene su propio contrato de endpoints/params;
-   `scouting/rapidapi_client.py` trae un método de ejemplo (`/search`) que
-   deberás ajustar al API real que elijas.
+4. El scouting real usa el endpoint **`/best-sellers`** de esta API (contrato
+   confirmado y ya implementado en `scouting/rapidapi_client.py`), que trae el
+   ranking de más vendidos por categoría de Amazon. Configura `SCOUTING_CATEGORY`
+   en `.env` con la categoría que quieras probar (ej. `electronics`,
+   `toys-and-games`, `home-garden` — nombres tal como aparecen en
+   https://www.amazon.com/Best-Sellers/zgbs).
+5. Si en el futuro usas otro API de RapidAPI (o el endpoint `/search` de este
+   mismo), ajusta esa parte del cliente a su contrato real.
 
 ### 3. CJdropshipping (https://cjdropshipping.com)
 1. Crea una cuenta normal en cjdropshipping.com.
