@@ -40,12 +40,17 @@ válidas.
 
 ## Qué necesitas registrar en cada plataforma
 
-### 1. Keepa (https://keepa.com)
-1. Crea una cuenta en keepa.com.
-2. Ve a **Settings > API** en tu perfil.
-3. El **free tier** da una cuota muy limitada de "tokens" por minuto (se
-   recargan lentamente) — suficiente para probar, no para producción.
-4. Copia el valor a `KEEPA_API_KEY` en `.env`.
+Para v1 solo son **3 keys imprescindibles**: RapidAPI, CJdropshipping y
+Anthropic/Claude. Keepa es opcional (ver nota abajo).
+
+### 1. Keepa (https://keepa.com) — OPCIONAL, sin plan gratis
+1. La API de Keepa **no tiene tier gratis**: Keepa Pro (~29€/mes) es solo la
+   extensión de navegador; la API de datos arranca en **~49€/mes** (plan
+   Starter, 20 tokens/minuto). Ver [Plans & Tokens](https://keepa.com/api-docs/plans-tokens.html).
+2. Por eso el pipeline usa `SCOUTING_SOURCE=rapidapi` por defecto y **no
+   requiere Keepa** para correr. Solo regístrate y paga la API de Keepa si
+   más adelante quieres su histórico de precios/BSR más completo — en ese
+   caso pon `SCOUTING_SOURCE=keepa` y `KEEPA_API_KEY` en `.env`.
 
 ### 2. RapidAPI (https://rapidapi.com)
 1. Crea una cuenta en rapidapi.com.

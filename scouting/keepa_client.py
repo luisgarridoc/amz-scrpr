@@ -1,8 +1,11 @@
 """Cliente básico para la API de Keepa (https://keepa.com/#!api).
 
-Free tier: registra una cuenta en keepa.com, en tu perfil obtienes la
-"API Key" (Settings > API). El free tier da una cuota de tokens/minuto muy
-limitada, por eso este cliente usa `common.retry.with_backoff`.
+IMPORTANTE: la API de Keepa NO tiene plan gratis. Keepa Pro (~29EUR/mes) es
+solo la extensión de navegador; la API de datos arranca en ~49EUR/mes (plan
+Starter, 20 tokens/minuto) -- ver https://keepa.com/api-docs/plans-tokens.html.
+Por eso en este proyecto Keepa es una fuente OPCIONAL (`SCOUTING_SOURCE=keepa`
+en .env); el default es RapidAPI, que sí tiene planes free/muy baratos.
+Úsalo solo si decides pagar la suscripción de API de Keepa.
 """
 from __future__ import annotations
 

@@ -25,6 +25,10 @@ def _get_float(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
+    # Fuente de scouting activa: "rapidapi" (default, tiene planes free/baratos)
+    # o "keepa" (la API de Keepa es 100% de pago, desde 49EUR/mes -- opcional).
+    scouting_source: str = os.getenv("SCOUTING_SOURCE", "rapidapi")
+
     keepa_api_key: str = os.getenv("KEEPA_API_KEY", "")
 
     rapidapi_key: str = os.getenv("RAPIDAPI_KEY", "")
