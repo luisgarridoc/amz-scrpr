@@ -23,6 +23,13 @@ def _get_float(name: str, default: float) -> float:
     return float(val)
 
 
+def _get_int(name: str, default: int) -> int:
+    val = os.getenv(name)
+    if val is None or val.strip() == "":
+        return default
+    return int(val)
+
+
 @dataclass(frozen=True)
 class Settings:
     # Fuente de scouting activa: "rapidapi" (default, tiene planes free/baratos)
@@ -46,6 +53,10 @@ class Settings:
 
     amazon_commission_pct: float = _get_float("AMAZON_COMMISSION_PCT", 15.0)
     min_gap_pct: float = _get_float("MIN_GAP_PCT", 50.0)
+    # Limita cuantos productos de Amazon se pasan a MATCHING (Claude+CJ) por
+    # corrida -- cada uno gasta varias llamadas de API, y el scouting real
+    # puede traer decenas de productos de golpe.
+    max_products_per_run: int = _get_int("MAX_PRODUCTS_PER_RUN", 5)
 
     test_mode: bool = _get_bool("TEST_MODE", True)
 

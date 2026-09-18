@@ -1,9 +1,8 @@
 """Orquestador del pipeline (v1: solo research de gaps de precio).
 
 En TEST_MODE (default) usa scouting/sample_data.py como fuente de productos
-Amazon y NO llama a Keepa/RapidAPI. El matching contra CJ y la validación
-con Claude sí requieren red real -- si no tienes esas keys todavía, corre
-solo test_connections.py primero.
+Amazon y NO llama a ninguna API externa. Con TEST_MODE=false hace scouting
+real vía RapidAPI y matching real vía Claude + CJdropshipping.
 """
 from calc.gap_calculator import calculate_gap
 from common.cache import MatchingCache
@@ -42,31 +41,51 @@ def run_scouting() -> list[dict]:
     return products
 
 
-def run_matching(amazon_product: dict, cache: MatchingCache) -> dict | None:
-    """Placeholder de matching: en TEST_MODE no llama a Claude/CJ todavía.
+def run_matching(amazon_product: dict, cache: MatchingCache, claude_client=None, cj_client=None) -> dict | None:
+    """Encuentra el equivalente de CJ para un producto de Amazon, cacheado por ASIN.
 
-    Cuando tengas las keys, aquí se generarán variantes de búsqueda con
-    ClaudeMatchingClient, se buscará en CJClient y se validará el match.
+    En TEST_MODE no llama a Claude/CJ (no hay clientes reales que pasar).
     """
     cache_key = f"asin:{amazon_product['asin']}"
     cached = cache.get(cache_key)
-    if cached:
-        return cached
+    if cached is not None:
+        return cached["match"] if cached.get("found") else None
 
     if settings.test_mode:
         logger.info("TEST_MODE: sin match real de CJ para %s (placeholder)", amazon_product["asin"])
         return None
 
-    raise NotImplementedError("Matching real vía Claude + CJ pendiente de conectar aquí.")
+    from matching.matcher import find_best_match
+
+    match = find_best_match(amazon_product["title"], claude_client, cj_client)
+    cache.set(cache_key, {"found": match is not None, "match": match})
+    return match
 
 
 def main() -> None:
     cache = MatchingCache()
     amazon_products = run_scouting()
 
+    if len(amazon_products) > settings.max_products_per_run:
+        logger.info(
+            "Limitando a MAX_PRODUCTS_PER_RUN=%d de %d productos escaneados",
+            settings.max_products_per_run,
+            len(amazon_products),
+        )
+        amazon_products = amazon_products[: settings.max_products_per_run]
+
+    claude_client = None
+    cj_client = None
+    if not settings.test_mode:
+        from matching.claude_client import ClaudeMatchingClient
+        from matching.cj_client import CJClient
+
+        claude_client = ClaudeMatchingClient()
+        cj_client = CJClient()
+
     rows = []
     for product in amazon_products:
-        match = run_matching(product, cache)
+        match = run_matching(product, cache, claude_client, cj_client)
         if not match:
             continue
         gap = calculate_gap(

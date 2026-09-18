@@ -70,5 +70,45 @@ class CJClient:
             return False
 
 
+def build_product_url(pid: str) -> str:
+    """URL pública del producto en CJ a partir del pid.
+
+    NOTA: /product/list y /product/query no devuelven una URL directa. Este
+    patrón ("/product/-p-{pid}.html") es el que usa el sitio de CJ, pero no
+    está confirmado contra documentación oficial (developers.cjdropshipping.com
+    no lo especifica) -- si en algún momento no resuelve, revísalo contra una
+    URL real copiada del sitio.
+    """
+    return f"https://cjdropshipping.com/product/-p-{pid}.html"
+
+
+def parse_product_list(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Convierte la respuesta de /product/list en candidatos de matching:
+    {pid, title, price, url, image, is_free_shipping}. Descarta items sin
+    pid o con sellPrice no numérico.
+    """
+    items = response.get("data", {}).get("list", []) or []
+    products = []
+    for item in items:
+        pid = item.get("pid")
+        if not pid:
+            continue
+        try:
+            price = float(item.get("sellPrice"))
+        except (TypeError, ValueError):
+            continue
+        products.append(
+            {
+                "pid": pid,
+                "title": item.get("productNameEn") or item.get("productName") or "",
+                "price": price,
+                "url": build_product_url(pid),
+                "image": item.get("productImage"),
+                "is_free_shipping": bool(item.get("isFreeShipping")),
+            }
+        )
+    return products
+
+
 if __name__ == "__main__":
     CJClient().test_connection()
