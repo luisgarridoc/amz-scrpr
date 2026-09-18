@@ -28,16 +28,37 @@ def run_scouting() -> list[dict]:
             "(solo 'rapidapi' está implementado)."
         )
 
-    from scouting.rapidapi_client import RapidAPIAmazonClient, map_best_sellers_to_products
+    from scouting.rapidapi_client import (
+        RapidAPIAmazonClient,
+        map_best_sellers_to_products,
+        map_search_to_products,
+    )
 
     client = RapidAPIAmazonClient()
-    raw = client.get_best_sellers(settings.scouting_category)
-    products = map_best_sellers_to_products(raw)
-    logger.info(
-        "Scouting real: %d productos con precio válido en categoría=%s",
-        len(products),
-        settings.scouting_category,
-    )
+
+    if settings.scouting_mode == "search":
+        if not settings.scouting_keyword:
+            raise ValueError("SCOUTING_MODE=search requiere SCOUTING_KEYWORD en .env")
+        raw = client.search_products(settings.scouting_keyword, country=settings.scouting_country)
+        products = map_search_to_products(raw)
+        logger.info(
+            "Scouting real: %d productos con precio válido para keyword=%r (país=%s)",
+            len(products),
+            settings.scouting_keyword,
+            settings.scouting_country,
+        )
+    elif settings.scouting_mode == "best_sellers":
+        raw = client.get_best_sellers(settings.scouting_category, country=settings.scouting_country)
+        products = map_best_sellers_to_products(raw)
+        logger.info(
+            "Scouting real: %d productos con precio válido en categoría=%s (país=%s)",
+            len(products),
+            settings.scouting_category,
+            settings.scouting_country,
+        )
+    else:
+        raise NotImplementedError(f"SCOUTING_MODE={settings.scouting_mode!r} no reconocido")
+
     return products
 
 

@@ -1,9 +1,14 @@
-"""Test unitario puro (sin red) del mapeo de /best-sellers al esquema interno.
+"""Test unitario puro (sin red) del mapeo de /best-sellers y /search al
+esquema interno.
 
-Fixture basada en una respuesta real de la API "Real-Time Amazon Data"
-(categoría "electronics").
+Fixtures basadas en respuestas reales de la API "Real-Time Amazon Data"
+(categoría "electronics" y búsqueda "padel racket").
 """
-from scouting.rapidapi_client import map_best_sellers_to_products
+from scouting.rapidapi_client import (
+    _parse_price,
+    map_best_sellers_to_products,
+    map_search_to_products,
+)
 
 SAMPLE_RESPONSE = {
     "status": "OK",
@@ -53,3 +58,41 @@ def test_map_best_sellers_skips_items_without_price():
     asins = {p["asin"] for p in products}
     assert "B0DN45YMP6" not in asins
     assert len(products) == 2
+
+
+def test_parse_price_handles_us_and_european_formats():
+    assert _parse_price("$1,249.00") == 1249.00
+    assert _parse_price("$11.99") == 11.99
+    assert _parse_price("49,90 €") == 49.90
+    assert _parse_price("1.249,00 €") == 1249.00
+    assert _parse_price(None) is None
+    assert _parse_price("") is None
+
+
+SAMPLE_SEARCH_RESPONSE = {
+    "status": "OK",
+    "data": {
+        "products": [
+            {
+                "asin": "B0FKH5HZXJ",
+                "product_title": "Bullpadel Game PWR Gris",
+                "product_price": "$99.95",
+                "product_num_ratings": 32,
+            },
+            {
+                "asin": "B0GL8KF89G",
+                "product_title": "Raquette de Padel para Principiantes",
+                "product_price": None,
+                "product_num_ratings": 10,
+            },
+        ]
+    },
+}
+
+
+def test_map_search_to_products_skips_missing_price_and_has_no_bsr():
+    products = map_search_to_products(SAMPLE_SEARCH_RESPONSE)
+    assert len(products) == 1
+    assert products[0]["asin"] == "B0FKH5HZXJ"
+    assert products[0]["price"] == 99.95
+    assert products[0]["bsr"] is None

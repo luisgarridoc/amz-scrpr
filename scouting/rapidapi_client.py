@@ -5,10 +5,19 @@ Free tier: plan Basic ($0/mes, 100 requests/mes). La key (X-RapidAPI-Key) y
 el host (X-RapidAPI-Host) se sacan del panel "Header Parameters" o del
 "Code Snippets" en el Playground del API, una vez suscrito.
 
-Endpoint usado para SCOUTING de "productos en tendencia": /best-sellers,
-que devuelve el ranking de más vendidos por categoría de Amazon (parámetros
-confirmados desde el Playground: language, country, type, page, fields,
-category).
+Dos formas de SCOUTING:
+  - /best-sellers: ranking de más vendidos por categoría de Amazon
+    (parámetros confirmados desde el Playground: language, country, type,
+    page, fields, category). Útil cuando el nicho coincide con una
+    categoría real de Amazon Best Sellers.
+  - /search: búsqueda libre por keyword (parámetros confirmados en vivo:
+    query, country, page). Útil para nichos que no tienen categoría propia
+    en Amazon (ej. "padel" no existe como categoría de Best Sellers en
+    amazon.com, pero sí hay cientos de productos buscables).
+
+Importante: usa siempre country="US" salvo que sepas que CJdropshipping
+también te va a cotizar en la misma moneda que uses aquí -- mezclar EUR de
+Amazon.es con USD de CJ rompe el cálculo de margen.
 """
 from __future__ import annotations
 
@@ -101,10 +110,19 @@ class RapidAPIAmazonClient:
 
 
 def _parse_price(raw: Optional[str]) -> Optional[float]:
-    """Convierte "$1,249.00" -> 1249.0. Devuelve None si no es parseable (o es null)."""
+    """Convierte precios con formato US ("$1,249.00") o europeo ("49,90 €")
+    a float. Detecta el separador decimal viendo cuál (',' o '.') aparece
+    último en la cadena. Devuelve None si no es parseable (o es null)."""
     if not raw:
         return None
-    cleaned = raw.replace("$", "").replace(",", "").strip()
+    cleaned = "".join(ch for ch in raw if ch.isdigit() or ch in ",.-")
+    if not cleaned:
+        return None
+    last_comma, last_dot = cleaned.rfind(","), cleaned.rfind(".")
+    if last_comma > last_dot:
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+    else:
+        cleaned = cleaned.replace(",", "")
     try:
         return float(cleaned)
     except ValueError:
@@ -129,6 +147,30 @@ def map_best_sellers_to_products(response: dict[str, Any]) -> list[dict[str, Any
                 "price": price,
                 "reviews": item.get("product_num_ratings") or 0,
                 "bsr": item.get("rank"),
+            }
+        )
+    return products
+
+
+def map_search_to_products(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Convierte la respuesta de /search al esquema interno del pipeline:
+    {title, asin, price, reviews, bsr}. /search no trae ranking de ventas,
+    así que bsr queda en None (columna vacía en el CSV final). Descarta
+    items sin precio.
+    """
+    items = response.get("data", {}).get("products", [])
+    products = []
+    for item in items:
+        price = _parse_price(item.get("product_price"))
+        if price is None:
+            continue
+        products.append(
+            {
+                "asin": item["asin"],
+                "title": item["product_title"],
+                "price": price,
+                "reviews": item.get("product_num_ratings") or 0,
+                "bsr": None,
             }
         )
     return products

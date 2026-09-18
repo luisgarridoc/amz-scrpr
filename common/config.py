@@ -42,9 +42,13 @@ class Settings:
     rapidapi_amazon_host: str = os.getenv(
         "RAPIDAPI_AMAZON_HOST", "real-time-amazon-data.p.rapidapi.com"
     )
-    # Categoria de Amazon Best Sellers a usar en el scouting real (ver
-    # https://www.amazon.com/Best-Sellers/zgbs para nombres de categoria/subcategoria).
+    # Modo de scouting: "best_sellers" (por categoria de Amazon Best Sellers,
+    # ver https://www.amazon.com/Best-Sellers/zgbs) o "search" (por keyword
+    # libre -- util para nichos sin categoria propia en Amazon, ej. "padel").
+    scouting_mode: str = os.getenv("SCOUTING_MODE", "best_sellers")
     scouting_category: str = os.getenv("SCOUTING_CATEGORY", "electronics")
+    scouting_keyword: str = os.getenv("SCOUTING_KEYWORD", "")
+    scouting_country: str = os.getenv("SCOUTING_COUNTRY", "US")
 
     cj_api_key: str = os.getenv("CJ_API_KEY", "")
 
