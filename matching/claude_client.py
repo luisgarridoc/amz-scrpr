@@ -23,6 +23,18 @@ from common.retry import with_backoff
 logger = get_logger(__name__)
 
 
+def _strip_code_fence(raw: str) -> str:
+    """Quita el envoltorio ```json ... ``` / ``` ... ``` que Claude a veces
+    añade aunque se le pida "solo JSON"."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[: -3]
+        text = text.strip()
+    return text
+
+
 class ClaudeMatchingClient:
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or settings.anthropic_api_key
@@ -51,7 +63,7 @@ class ClaudeMatchingClient:
             f"Titulo Amazon: {amazon_title}\n\n"
             'Responde SOLO con un JSON array de strings, ej: ["variant 1", "variant 2"]'
         )
-        raw = self._complete(prompt)
+        raw = _strip_code_fence(self._complete(prompt))
         try:
             variants = json.loads(raw)
             if isinstance(variants, list):
