@@ -22,31 +22,31 @@ class FakeCJ:
         self._responses = responses_by_variant
 
     def search_products(self, keyword, page_size=5):
-        return self._responses.get(keyword, {"data": {"list": []}})
+        return self._responses.get(keyword, {"data": {"content": []}})
 
 
 def _cj_item(pid, title, price, free_shipping=False):
     return {
-        "pid": pid,
-        "productNameEn": title,
+        "id": pid,
+        "nameEn": title,
         "sellPrice": str(price),
-        "isFreeShipping": free_shipping,
+        "addMarkStatus": 1 if free_shipping else 0,
     }
+
+
+def _cj_response(*items):
+    return {"data": {"content": [{"productList": list(items)}]}}
 
 
 def test_find_best_match_picks_cheapest_among_validated():
     responses = {
-        "neck massager": {
-            "data": {
-                "list": [
-                    _cj_item("p1", "Mini Neck Massager USB", 12.0),
-                    _cj_item("p2", "Unrelated Phone Case", 3.0),
-                ]
-            }
-        },
-        "portable massager": {
-            "data": {"list": [_cj_item("p3", "Portable Neck Massager", 9.5, free_shipping=True)]}
-        },
+        "neck massager": _cj_response(
+            _cj_item("p1", "Mini Neck Massager USB", 12.0),
+            _cj_item("p2", "Unrelated Phone Case", 3.0),
+        ),
+        "portable massager": _cj_response(
+            _cj_item("p3", "Portable Neck Massager", 9.5, free_shipping=True)
+        ),
     }
     claude = FakeClaude(
         variants=["neck massager", "portable massager"],
@@ -63,7 +63,7 @@ def test_find_best_match_picks_cheapest_among_validated():
 
 
 def test_find_best_match_returns_none_if_no_candidate_validates():
-    responses = {"keyword": {"data": {"list": [_cj_item("p1", "Totally Unrelated Item", 5.0)]}}}
+    responses = {"keyword": _cj_response(_cj_item("p1", "Totally Unrelated Item", 5.0))}
     claude = FakeClaude(variants=["keyword"], valid_titles=set())
     cj = FakeCJ(responses)
 

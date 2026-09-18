@@ -48,12 +48,18 @@ class CJClient:
         return token
 
     @with_backoff()
-    def search_products(self, keyword: str, page_size: int = 10) -> dict[str, Any]:
-        """Busca productos por keyword en el catálogo de CJ."""
+    def search_products(self, keyword: str, page_size: int = 10, page: int = 1) -> dict[str, Any]:
+        """Busca productos por keyword libre en el catálogo de CJ.
+
+        Usa /product/listV2 (no /product/list: ese endpoint viejo ignora el
+        filtro de texto y devuelve productos irrelevantes -- confirmado
+        probándolo en vivo). listV2 sí hace búsqueda real por keyword vía el
+        parámetro `keyWord` (con W mayúscula).
+        """
         token = self.get_access_token()
-        url = f"{BASE_URL}/product/list"
+        url = f"{BASE_URL}/product/listV2"
         headers = {"CJ-Access-Token": token}
-        params = {"productName": keyword, "pageSize": page_size}
+        params = {"keyWord": keyword, "page": page, "size": page_size}
         resp = requests.get(url, headers=headers, params=params, timeout=15)
         raise_for_rate_limit(resp)
         return resp.json()
@@ -71,42 +77,45 @@ class CJClient:
 
 
 def build_product_url(pid: str) -> str:
-    """URL pública del producto en CJ a partir del pid.
+    """URL pública del producto en CJ a partir de su id.
 
-    NOTA: /product/list y /product/query no devuelven una URL directa. Este
-    patrón ("/product/-p-{pid}.html") es el que usa el sitio de CJ, pero no
-    está confirmado contra documentación oficial (developers.cjdropshipping.com
-    no lo especifica) -- si en algún momento no resuelve, revísalo contra una
-    URL real copiada del sitio.
+    NOTA: /product/listV2 no devuelve una URL directa. Este patrón
+    ("/product/-p-{id}.html") es el que usa el sitio de CJ, pero no está
+    confirmado contra documentación oficial -- si en algún momento no
+    resuelve, revísalo contra una URL real copiada del sitio.
     """
     return f"https://cjdropshipping.com/product/-p-{pid}.html"
 
 
 def parse_product_list(response: dict[str, Any]) -> list[dict[str, Any]]:
-    """Convierte la respuesta de /product/list en candidatos de matching:
-    {pid, title, price, url, image, is_free_shipping}. Descarta items sin
-    pid o con sellPrice no numérico.
+    """Convierte la respuesta de /product/listV2 en candidatos de matching:
+    {pid, title, price, url, image, is_free_shipping}.
+
+    La respuesta viene anidada como data.content[].productList[] (cada
+    entrada de "content" agrupa resultados de una keyword). Descarta items
+    sin id o con sellPrice no numérico.
     """
-    items = response.get("data", {}).get("list", []) or []
+    content = response.get("data", {}).get("content", []) or []
     products = []
-    for item in items:
-        pid = item.get("pid")
-        if not pid:
-            continue
-        try:
-            price = float(item.get("sellPrice"))
-        except (TypeError, ValueError):
-            continue
-        products.append(
-            {
-                "pid": pid,
-                "title": item.get("productNameEn") or item.get("productName") or "",
-                "price": price,
-                "url": build_product_url(pid),
-                "image": item.get("productImage"),
-                "is_free_shipping": bool(item.get("isFreeShipping")),
-            }
-        )
+    for group in content:
+        for item in group.get("productList", []) or []:
+            pid = item.get("id")
+            if not pid:
+                continue
+            try:
+                price = float(item.get("sellPrice"))
+            except (TypeError, ValueError):
+                continue
+            products.append(
+                {
+                    "pid": pid,
+                    "title": item.get("nameEn") or "",
+                    "price": price,
+                    "url": build_product_url(pid),
+                    "image": item.get("bigImage"),
+                    "is_free_shipping": item.get("addMarkStatus") == 1,
+                }
+            )
     return products
 
 

@@ -35,6 +35,16 @@ def _strip_code_fence(raw: str) -> str:
     return text
 
 
+def _extract_json_array(raw: str) -> str:
+    """Aísla el primer "[...]" del texto -- cubre casos como Claude
+    devolviendo literalmente 'json["a", "b"]' sin backticks de code fence."""
+    text = _strip_code_fence(raw)
+    start, end = text.find("["), text.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        return text[start : end + 1]
+    return text
+
+
 class ClaudeMatchingClient:
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or settings.anthropic_api_key
@@ -51,7 +61,13 @@ class ClaudeMatchingClient:
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
-        return resp.content[0].text
+        # resp.content puede traer bloques de "thinking" antes del texto
+        # (algunos modelos/cuentas los devuelven aunque no se pida extended
+        # thinking); nos quedamos con el primer bloque que sea texto real.
+        for block in resp.content:
+            if getattr(block, "type", None) == "text":
+                return block.text
+        raise RuntimeError(f"Respuesta de Claude sin bloque de texto: {resp.content!r}")
 
     def generate_search_variants(self, amazon_title: str, n: int = 3) -> list[str]:
         """Genera n variantes de búsqueda cortas para buscar en CJdropshipping."""
@@ -63,7 +79,7 @@ class ClaudeMatchingClient:
             f"Titulo Amazon: {amazon_title}\n\n"
             'Responde SOLO con un JSON array de strings, ej: ["variant 1", "variant 2"]'
         )
-        raw = _strip_code_fence(self._complete(prompt))
+        raw = _extract_json_array(self._complete(prompt))
         try:
             variants = json.loads(raw)
             if isinstance(variants, list):
@@ -81,7 +97,7 @@ class ClaudeMatchingClient:
             "(mismo tipo de item, funcion y forma), ignorando diferencias de marca, "
             "color o empaque?"
         )
-        raw = self._complete(prompt, max_tokens=10).strip().lower()
+        raw = self._complete(prompt, max_tokens=200).strip().lower()
         return raw.startswith("true")
 
     def test_connection(self) -> bool:
