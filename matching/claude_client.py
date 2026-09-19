@@ -89,43 +89,53 @@ class ClaudeMatchingClient:
         return [raw]
 
     def validate_match(self, amazon_title: str, cj_title: str) -> bool:
-        """Valida si cj_title es REALMENTE el mismo producto que amazon_title
-        (mismo mecanismo/forma de uso), no solo de la misma categoría general.
+        """Valida si cj_title es CASI IDÉNTICO a amazon_title -- no solo de
+        la misma categoría ni con función parecida, sino el tipo de producto
+        que un cliente aceptaría sin notar el cambio si le mandas el otro.
 
-        Primera versión de este prompt era demasiado permisiva: aprobaba
-        matches por categoría compartida (ej. un chopper de cuchillas fijas
-        con un spiralizer de manivela, ambos "utensilios de verdura"; o un
-        paño de coche con un paño de cocina, ambos "de coral fleece").
-        Ahora pide razonamiento explícito antes de la respuesta final y da
-        ejemplos concretos de qué SÍ y qué NO cuenta como el mismo producto.
+        v1 del prompt solo pedia "mismo tipo de item, funcion y forma" sin
+        ejemplos, y aprobaba por categoria compartida (chopper vs spiralizer,
+        ambos "utensilio de verdura"; paño de coche vs paño de cocina, ambos
+        "de coral fleece"). v2 anadio ejemplos de mecanismo distinto pero
+        seguia siendo permisiva con especificaciones (tamaño/capacidad/
+        material/funciones) distintas dentro del mismo mecanismo. v3 exige
+        comparar explicitamente esas especificaciones, no solo el mecanismo.
         """
         prompt = (
-            "Eres un experto en catalogacion de productos para dropshipping. "
-            "Decide si dos productos son REALMENTE el mismo tipo de producto: "
-            "si un cliente que compro uno se quedaria satisfecho si le mandas "
-            "el otro en su lugar (misma funcion principal Y mismo mecanismo o "
-            "forma de uso).\n\n"
-            "NO cuentan como el mismo producto (aunque compartan categoria o "
-            "palabras del titulo):\n"
-            "- Mismo uso general pero mecanismo/forma distintos (ej: un "
-            "chopper de cuchillas fijas NO es un spiralizer de manivela, "
-            "aunque ambos sean \"utensilios para cortar verdura\").\n"
-            "- Mismo material o palabras descriptivas pero uso previsto "
-            "distinto (ej: un paño para coche NO es un paño de cocina, "
-            "aunque ambos sean \"de microfibra\").\n"
-            "- Un producto individual vs. un set/kit con piezas que el otro "
-            "no tiene.\n\n"
-            "SI cuentan como el mismo producto:\n"
-            "- Mismo tipo de objeto, misma funcion y mecanismo, aunque "
-            "cambie la marca, el color, el empaque, o el numero exacto de "
-            "piezas de un set del mismo tipo (ej: un set de 24 panos de "
-            "cocina y uno de 20 panos de cocina del mismo tipo SI cuentan).\n\n"
-            f'Producto Amazon: "{amazon_title}"\n'
-            f'Producto proveedor: "{cj_title}"\n\n'
-            "Primero, en una linea de maximo 20 palabras, describe la funcion "
-            "y mecanismo principal de cada producto.\n"
+            "Eres un experto en control de calidad de catalogacion para "
+            "dropshipping. Decide si el Producto B es CASI IDENTICO al "
+            "Producto A -- no \"de la misma categoria\" ni \"con funcion "
+            "parecida\", sino el tipo de producto que un cliente aceptaria "
+            "sin notar el cambio si le mandas B en vez de A.\n\n"
+            "Compara explicitamente estos aspectos:\n"
+            "1. Mecanismo / forma de uso exacta (como funciona).\n"
+            "2. Especificaciones clave: tamaño, capacidad, material, "
+            "potencia, numero de piezas o funciones incluidas.\n\n"
+            "RECHAZA (false) si:\n"
+            "- El mecanismo es distinto, aunque la categoria general sea la "
+            "misma (ej: un chopper de cuchillas fijas NO es un spiralizer "
+            "de manivela, aunque ambos sean \"utensilio para verdura\").\n"
+            "- El uso previsto es distinto aunque compartan material o "
+            "palabras del titulo (ej: un paño de coche NO es un paño de "
+            "cocina, aunque ambos sean \"de microfibra\").\n"
+            "- Las especificaciones clave difieren de forma notable (ej: "
+            "24oz vs 12oz de capacidad, un set de 5 piezas vs uno de 14 con "
+            "funciones distintas, potencia/material que cambia el uso).\n"
+            "- Uno tiene funciones o accesorios relevantes que el otro no "
+            "tiene.\n\n"
+            "ACEPTA (true) SOLO si:\n"
+            "- Mismo mecanismo Y especificaciones clave equivalentes (se "
+            "permite tolerancia razonable: 24oz vs 25oz si cuenta, 24oz vs "
+            "12oz no; un set de 24 piezas vs uno de 20 del mismo tipo si "
+            "cuenta, un set de 5 piezas vs uno de 14 con piezas distintas "
+            "no).\n"
+            "- Las unicas diferencias son marca, color o empaque.\n\n"
+            f'Producto A (Amazon): "{amazon_title}"\n'
+            f'Producto B (proveedor): "{cj_title}"\n\n'
+            "Primero, en maximo 2 lineas, compara mecanismo y especificaciones "
+            "clave de A vs B.\n"
             "Despues, en la ULTIMA linea de tu respuesta y solo en esa linea, "
-            "escribe exactamente \"ANSWER: true\" si son el mismo producto, o "
+            "escribe exactamente \"ANSWER: true\" si son casi identicos, o "
             "\"ANSWER: false\" si no lo son."
         )
         raw = self._complete(prompt, max_tokens=800)
