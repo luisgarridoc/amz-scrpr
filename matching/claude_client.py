@@ -89,16 +89,52 @@ class ClaudeMatchingClient:
         return [raw]
 
     def validate_match(self, amazon_title: str, cj_title: str) -> bool:
-        """Valida semánticamente si cj_title es el mismo producto (o muy similar)."""
+        """Valida si cj_title es REALMENTE el mismo producto que amazon_title
+        (mismo mecanismo/forma de uso), no solo de la misma categoría general.
+
+        Primera versión de este prompt era demasiado permisiva: aprobaba
+        matches por categoría compartida (ej. un chopper de cuchillas fijas
+        con un spiralizer de manivela, ambos "utensilios de verdura"; o un
+        paño de coche con un paño de cocina, ambos "de coral fleece").
+        Ahora pide razonamiento explícito antes de la respuesta final y da
+        ejemplos concretos de qué SÍ y qué NO cuenta como el mismo producto.
+        """
         prompt = (
-            "Responde SOLO 'true' o 'false' (sin explicacion): dado que un producto "
-            f"de Amazon se llama \"{amazon_title}\" y un producto de un proveedor se "
-            f"llama \"{cj_title}\", son el mismo producto generico o muy similar "
-            "(mismo tipo de item, funcion y forma), ignorando diferencias de marca, "
-            "color o empaque?"
+            "Eres un experto en catalogacion de productos para dropshipping. "
+            "Decide si dos productos son REALMENTE el mismo tipo de producto: "
+            "si un cliente que compro uno se quedaria satisfecho si le mandas "
+            "el otro en su lugar (misma funcion principal Y mismo mecanismo o "
+            "forma de uso).\n\n"
+            "NO cuentan como el mismo producto (aunque compartan categoria o "
+            "palabras del titulo):\n"
+            "- Mismo uso general pero mecanismo/forma distintos (ej: un "
+            "chopper de cuchillas fijas NO es un spiralizer de manivela, "
+            "aunque ambos sean \"utensilios para cortar verdura\").\n"
+            "- Mismo material o palabras descriptivas pero uso previsto "
+            "distinto (ej: un paño para coche NO es un paño de cocina, "
+            "aunque ambos sean \"de microfibra\").\n"
+            "- Un producto individual vs. un set/kit con piezas que el otro "
+            "no tiene.\n\n"
+            "SI cuentan como el mismo producto:\n"
+            "- Mismo tipo de objeto, misma funcion y mecanismo, aunque "
+            "cambie la marca, el color, el empaque, o el numero exacto de "
+            "piezas de un set del mismo tipo (ej: un set de 24 panos de "
+            "cocina y uno de 20 panos de cocina del mismo tipo SI cuentan).\n\n"
+            f'Producto Amazon: "{amazon_title}"\n'
+            f'Producto proveedor: "{cj_title}"\n\n'
+            "Primero, en una linea de maximo 20 palabras, describe la funcion "
+            "y mecanismo principal de cada producto.\n"
+            "Despues, en la ULTIMA linea de tu respuesta y solo en esa linea, "
+            "escribe exactamente \"ANSWER: true\" si son el mismo producto, o "
+            "\"ANSWER: false\" si no lo son."
         )
-        raw = self._complete(prompt, max_tokens=200).strip().lower()
-        return raw.startswith("true")
+        raw = self._complete(prompt, max_tokens=800)
+        for line in reversed(raw.strip().splitlines()):
+            line = line.strip().lower()
+            if line.startswith("answer:"):
+                return line.split(":", 1)[1].strip().startswith("true")
+        logger.warning("validate_match: no se encontró línea 'ANSWER:' en la respuesta: %r", raw)
+        return False
 
     def test_connection(self) -> bool:
         """Prueba mínima: genera variantes para un título de ejemplo."""
